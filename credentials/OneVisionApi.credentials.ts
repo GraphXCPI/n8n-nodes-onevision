@@ -9,7 +9,7 @@ import {
 export class OneVisionApi implements ICredentialType {
 	name = 'oneVisionApi';
 	displayName = 'OneVision API';
-	icon: Icon = 'file:OneVision.svg';
+	icon: Icon = { light: 'file:OneVision.svg', dark: 'file:OneVision.dark.svg' };
 	documentationUrl = 'https://ov.visualgraphx.com/ws/pages/swagger/';
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',

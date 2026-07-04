@@ -14,7 +14,7 @@ export class OneVision implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'OneVision',
 		name: 'oneVision',
-		icon: 'file:OneVision.svg',
+		icon: { light: 'file:OneVision.svg', dark: 'file:OneVision.dark.svg' },
 		group: ['transform'],
 		version: [1, 2, 3, 10],
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -939,16 +939,16 @@ export class OneVision implements INodeType {
 				},
 				options: [
 					{
-						name: 'Get Many',
-						value: 'getAll',
-						description: 'Get many module instances',
-						action: 'Get many modules',
-					},
-					{
 						name: 'Get Info',
 						value: 'getInfo',
 						description: 'Get information about a specific module instance',
 						action: 'Get module info',
+					},
+					{
+						name: 'Get Many',
+						value: 'getAll',
+						description: 'Get many module instances',
+						action: 'Get many modules',
 					},
 					{
 						name: 'Resume Continue on REST',
@@ -1137,14 +1137,14 @@ export class OneVision implements INodeType {
 						description: 'Daily timeline',
 					},
 					{
-						name: 'Week',
-						value: 'WEEK',
-						description: 'Weekly timeline',
-					},
-					{
 						name: 'Month',
 						value: 'MONTH',
 						description: 'Monthly timeline',
+					},
+					{
+						name: 'Week',
+						value: 'WEEK',
+						description: 'Weekly timeline',
 					},
 					{
 						name: 'Year',
@@ -1289,16 +1289,16 @@ export class OneVision implements INodeType {
 				},
 				options: [
 					{
-						name: 'Get Many',
-						value: 'getAll',
-						description: 'Get many substrates from /substrate/all',
-						action: 'Get many substrates',
-					},
-					{
 						name: 'Get Last Changed',
 						value: 'getLastChanged',
 						description: 'Get the substrate last changed marker from /substrate/lastChanged',
 						action: 'Get substrate last changed marker',
+					},
+					{
+						name: 'Get Many',
+						value: 'getAll',
+						description: 'Get many substrates from /substrate/all',
+						action: 'Get many substrates',
 					},
 				],
 				default: 'getAll',
