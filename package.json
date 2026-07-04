@@ -1,0 +1,63 @@
+{
+  "name": "n8n-nodes-onevision",
+  "version": "1.1.0",
+  "description": "n8n node for OneVision Workspace Server integration",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "onevision",
+    "workspace",
+    "print",
+    "workflow",
+    "production"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/GraphXCPI/n8n-nodes-onevision#readme",
+  "author": {
+    "name": "cderamos-2ct",
+    "email": "christian@2ctmedia.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GraphXCPI/n8n-nodes-onevision.git"
+  },
+  "main": "dist/nodes/OneVision/OneVision.node.js",
+  "scripts": {
+    "build": "npm run n8n-node:build",
+    "dev": "npx --yes @n8n/node-cli dev",
+    "clean": "rm -rf dist",
+    "lint": "npm run n8n-node:lint",
+    "lint:fix": "npm run n8n-node:lint -- --fix",
+    "verify:release": "npm run clean && npm run build && npm run lint && npm pack --dry-run",
+    "n8n-node:build": "npx --yes @n8n/node-cli build",
+    "n8n-node:lint": "npx --yes --package=@n8n/node-cli node scripts/run-n8n-node-lint.js",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/OneVisionApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/OneVision/OneVision.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "n8n-workflow": "^2.28.4",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "bugs": {
+    "url": "https://github.com/GraphXCPI/n8n-nodes-onevision/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
