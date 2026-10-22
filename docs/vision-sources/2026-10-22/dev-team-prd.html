@@ -1,0 +1,636 @@
+<!doctype html><html><head><meta charset="utf-8"><title>GraphX Studio PRD and FRD</title></head><body>
+<h1>00 — GraphX Studio: Executive Summary, PRD &amp; FRD (for the dev team)</h1>
+<h2>Start here</h2>
+<p>This is the entry document for developers joining GraphX Studio. It says what we are building, why, where it stands and how we work, and it links to the detailed docs instead of repeating them. Written 2026-10-22 from the owner's decision register, the Studio plan, the tracker and the module docs. Owner decisions are cited by ID (for example PD-118); look them up in <a href="https://docs.google.com/document/d/12W1Gvr_JKvGmiMRnnpK1173uItxJo51Cu8bP7pf7_Gk/edit">doc 10, the Ideas &amp; Decisions Register</a>. Anything not settled is marked open.</p>
+<h3>How to read it</h3>
+<ul>
+<li><b>Everyone</b>: Executive summary (vision, status, architecture, phases), then How it fits GraphX.</li>
+<li><b>Before a task</b>: the PRD (rules, milestones, open questions), your area in the FRD (147 numbered requirements), the NFRs, then How we work.</li>
+<li><b>For detail</b>: each FRD area links its module doc; production tools are defined only in <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">doc 11</a> by PT-ID. The Doc and link index lists everything; the Glossary explains the IDs.</li>
+</ul>
+<h3>Who to contact</h3>
+<p>The owner, Chris (Christian De Ramos), runs the GraphX print and sign shop and makes the product decisions. Take questions about scope, priority, naming, licences and anything marked open to him. Legal questions always go to him (PD-59, PD-60). Day-to-day build work is also run by two AI agent lanes, Claude (Studio) and Codex (Prepress); see How we work.</p>
+<h2>Executive summary</h2>
+<h3>The vision</h3>
+<p><b>One GraphX Studio.</b> We are combining the working Craft apps (DesignCraft, VectorCraft, PhotoCraft, PdfCraft, LightCraft; open-source Rust apps we forked and own, PD-53) into one native Rust/egui app that runs in the browser (WebAssembly) and on macOS, Windows and Linux (PD-41, PD-44, PD-48, PD-104). We build on what works rather than rebuild it, and keep a test build live at every step (PD-100). Design is the base; Image, Develop, Vector and PDF Press tools appear when you select that kind of object (PD-69). Everything ends as a press-ready PDF, and the saved file is a real PDF (PD-77). Modes: Design, Edit PDF, Templates &amp; VDP, Production (PD-137). Production is built in: the visualizer's production studios fold in as product modes (PD-70, PD-74), and Studio shares its production code with GraphX Prepress, our replacement for the OneVision system the shop runs today (PD-37, PD-145).</p>
+<h3>Why, for a print and sign shop</h3>
+<ul>
+<li><b>One tool from artwork to machine.</b> Designers, prepress staff and customers work on one file in one app, with views by role (PD-66), instead of passing work between separate design apps, a web visualizer and the OneVision system. Files are print-safe: nothing prints differently from what is shown (PD-94; PD-107 is a coordinator rule awaiting owner confirmation, Q7).</li>
+<li><b>Previews that match production.</b> Studio's live previews and Prepress run the same shared code, so the preview is meant to match what production makes (PD-145, PD-161).</li>
+<li><b>Own the production stack.</b> GraphX Prepress is to replace OneVision: one subscription, and we own the margin (PD-04, PD-37).</li>
+<li><b>Works offline and grows with the shop.</b> Desktop uses local resources with no artificial limits (PD-101); a shop can start standalone and later move to GraphX with its data already mapped (PD-147).</li>
+<li><b>Designers can automate.</b> A designer records a sequence of actions and saves it as a Prepress automation (PD-145).</li>
+</ul>
+<h3>Where it stands (2026-10-22)</h3>
+<p><b>Works</b> (merged through PR #269): New, Open, Import, Place (Craft files, images, SVG, EPS, PDF, AI), Save and reopen; page-by-page canvas; text; colour strip; dockable toolbars and palettes; property bar part 1; in-app Feedback; desktop sign-in; hardened PDF reading with exact file errors.</p>
+<p><b>Not yet</b>: Export (PDF, PNG, SVG, JPEG), the biggest gap; most of the property bar; vector and photo tool families (6 of 90 VectorCraft tools); PDF-as-vector fallback; system fonts; signed builds (Windows and macOS never run on a real machine); updater. Test sites lag the code. Building is paused until Sat Oct 24, 23:00 UTC (PD-112).</p>
+<p><b>Tracker</b> (<a href="https://docs.google.com/spreadsheets/d/1o_2X-y0KZN1nkN7WCbb7QqQ91xEcOiiz-bHr1Oq3vhA/edit">Progress Checklist</a>, 2026-10-22): 290 tasks: 59 Done, 6 Partial, 157 Not started, 68 Blocked (51 of them production integration, held by PD-118).</p>
+<h3>The architecture in one picture</h3>
+<table border="1">
+<tr><th>Design side</th><th>Shared</th><th>Production side</th></tr>
+<tr><td></td><td><b>GraphX platform: the system of record</b> (PD-147). Storefront and catalog, ordering, pricing, proofing, materials, DAM, automation. Owns machines, materials, spot/process maps, processes, device profiles and catalogs.</td><td></td></tr>
+<tr><td><b>Local shadow DB</b> (same schema, stable IDs)</td><td>&#8597; synced per tenant, two-way, GX-300 conflict rules (PD-147); PostgreSQL only (PD-152)</td><td><b>Local shadow DB</b> (same schema, stable IDs)</td></tr>
+<tr><td><b>GraphX Studio</b>: one native Rust/egui app, desktop and browser. Modes Design, Edit PDF, Templates &amp; VDP, Production (PD-137). Live previews.</td><td><b>graphx-production-core</b> (shared Rust crates, PD-145, PD-155): PDF engine, colour, image/PDF conversion, nesting, marks/barcodes, preflight rules, spot maps, paneling, finishing, dielines, imposition, module API, PrepressPort.</td><td><b>GraphX Prepress</b>: the OneVision replacement (PD-37). Automation lines built from modules; every module is the same code Studio can call (PD-145).</td></tr>
+<tr><td><b>Action palette</b>: every Prepress module; record a flow &#8594;</td><td>job ticket through PrepressPort &#8594; results come back as visualisations (PD-71)</td><td>&#8594; saved as a Prepress automation (PD-145)</td></tr>
+<tr><td></td><td><b>Devices</b>: RIPs, cutters, routers, presses. Today the OneVision system we are replacing drives them; Studio hands jobs to its existing lines until Prepress is shadow-proven (PD-143, PD-144).</td><td></td></tr>
+</table>
+<h3>Phases</h3>
+<table border="1">
+<tr><th>Phase</th><th>What it means</th><th>Gate</th></tr>
+<tr><td>1. Baseline "working"</td><td>Open, place, edit, save, reopen and export real shop files on desktop and browser; no dead buttons</td><td>STUDIO-PLAN FOCUS 1 to 6</td></tr>
+<tr><td>2. Designer test</td><td>Designers test desktop and browser at Craft level and report in the app</td><td>PD-104, PD-105</td></tr>
+<tr><td>3. Baseline approved</td><td>Owner approves the core design system</td><td>PD-118</td></tr>
+<tr><td>4. Production integration</td><td>Shared crates, PrepressPort, imposition, nesting, device nodes, Action palette, sync, product modes</td><td>Doc 11: 119 tasks, 604 to 960 agent hours</td></tr>
+<tr><td>Prepress (parallel)</td><td>Codex continues the Prepress rebuild now, by real usage, shadow-proving each piece; PD-118 does not hold it</td><td>PD-148, PD-151, PD-164</td></tr>
+</table>
+<h3>What we need from the team</h3>
+<ul>
+<li>Work the FOCUS list first: Export, the property bar, PDF-as-vector, vector tools.</li>
+<li>Test on real Windows and macOS machines; run the designer test on every refresh.</li>
+<li>Keep code readable and modular (PD-84); batch owner questions with a recommendation.</li>
+</ul>
+<h2>How it fits GraphX</h2>
+<p>GraphX is the shop's platform: one system, many modules, PostgreSQL as the record (see <a href="https://github.com/GraphXCPI/graphx-docs">graphx-docs</a> and the workspace SYSTEM-MAP). Studio becomes the integrated design and production front end of that platform. This tab explains the joins. The architecture detail is in <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.4sq9qi7g56lu">doc 11, Big picture</a> and <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.98q92zxuqzt2">Prepress cross-reference</a>.</p>
+<h3>The GraphX platform pieces Studio connects to</h3>
+<table border="1">
+<tr><th>Platform piece</th><th>Role for Studio</th><th>Decisions</th></tr>
+<tr><td>Storefront and catalog</td><td>Opens Studio set up for a product with a live quote; order-first and design-first both work; catalog/PIM is the authority for product rules. Designed against OnPrintShop now, behind a catalog adapter.</td><td>CM-04, PD-71, PD-72</td></tr>
+<tr><td>Ordering and jobs</td><td>Add to order from Studio's primary button; jobs carry a job ticket</td><td>PD-80, PD-71</td></tr>
+<tr><td>Pricing</td><td>Selectable price source: platform engine (target), OnPrintShop adapter, or a labelled local estimate</td><td>CM-01 to CM-03</td></tr>
+<tr><td>Proofing</td><td>The proofing service is interim; all its features move into Studio's Proof workspace, with the platform record as the backend</td><td>PD-133, PD-82 item 11</td></tr>
+<tr><td>Materials</td><td>Today's operational source for materials; feeds the shared reference data</td><td>PD-09, PD-147</td></tr>
+<tr><td>DAM</td><td>Assets workspace browses and places assets by reference; Rust DAM core is the single authority</td><td>PD-47, PD-55, PD-78</td></tr>
+<tr><td>Automation</td><td>Recorded Studio flows become Prepress automations; command API for agents</td><td>PD-145, PD-10, PD-71</td></tr>
+<tr><td>Knowledge Vault</td><td>Project memory for the team and agents: derived summaries and receipts only, never source, secrets or customer data</td><td>AGENTS.md</td></tr>
+</table>
+<h3>Studio modes and phases</h3>
+<ul>
+<li><b>Modes</b> (PD-137): Design, Edit PDF, Templates &amp; VDP (the former PDF Block Builder), Production.</li>
+<li><b>Tool sets inside Design</b> (PD-69, PD-75): Image, Develop, Vector and PDF Press appear when you select that kind of object; their basic create tools always sit in the left toolbar.</li>
+<li><b>Phases around Design</b> (PD-63, PD-69): before or during: Templates, Assets; after: Preflight, Prepress, Proof. Each phase is hidden until a real provider backs it (#242).</li>
+<li><b>Product modes</b> (PD-70): a production studio is a specialised panel that sets up the canvas (template, dieline, panels) and shares the one Objects panel.</li>
+<li><b>Open</b>: how the four PD-137 modes map onto the PD-63/PD-69 phases and tool sets is not yet written down; ask before building mode switching.</li>
+</ul>
+<h3>Providers: Request proof and Add to order</h3>
+<p>Studio never calls a service directly. It calls a provider or port, and a control is hidden, with a reason, when no provider is connected. The primary split button defaults by context: <b>Add to order</b> for an orderable product with a live price, <b>Request proof</b> in quote mode or when proof is required, otherwise <b>Save/Export</b> (PD-80). The provider traits exist in code; none is connected yet, so today the button is always Save/Export.</p>
+<h3>PrepressPort and job tickets</h3>
+<p>Work leaves Studio as a job ticket through PrepressPort, and results come back as visualisations in Studio: proofs, separations, nesting previews, preflight reports (PD-71). The ticket format is graphx.jobticket/v1 (canonical JSON plus SHA-256, from the Rust job format decided in ADR-0001 D14). The working plan in doc 11 is that Studio v1 shows advisory previews and writes no machine files, with production outputs made in Prepress; who writes cutter and machine files is still an owner question (PRD-15, Q5) (<a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.4sq9qi7g56lu">doc 11, Big picture</a>). Until Prepress reaches parity, jobs go to the existing OneVision lines through their API (PD-05, PD-144).</p>
+<h3>Action palette and recorded flows</h3>
+<p>Studio and Prepress share the exact same processes (PD-145). Every Prepress module is described by one manifest and appears in Studio's Action palette. A designer records a sequence of actions as a flow and saves it as a Prepress automation. It works both ways: Studio functions such as paneling, finishing geometry, dielines and colour fixes are packaged as Prepress modules, and Studio can run code actions over the same module API (PD-146). Codex drafts the manifest; Claude reviews it for the Studio side: palette, recording, undo (PD-165).</p>
+<h3>Shared reference data</h3>
+<p>GraphX owns the production reference data: machines and devices, materials (with real roll widths, PD-121), spot and process mappings (PD-120), processes and finishing, device profiles (overcut PD-123, platens PD-124) and catalogs (PD-146, PD-147). Local installs of Studio and Prepress keep a shadow database with the same schema and stable IDs, synced per tenant. A shop that starts standalone can sign up for GraphX and migrate with every record already mapped. Databases are PostgreSQL only, local installs included (PD-152); ADR-0001's SQLite local store is superseded by PD-152. Entities E1 to E6 and crate SC-13 are in <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.98q92zxuqzt2">Prepress cross-reference</a>.</p>
+<h3>One PDF, colour and conversion engine</h3>
+<p>There are at least five PDF stacks today. They converge into one PDF engine in graphx-production-core (PD-154): Studio's hardened reading, rendering and writing, plus Prepress's structural editing, with one limits policy, one hostile-file corpus and one diagnostics table. One colour crate gives the same colour for the same input and profile everywhere (PD-161), with the colour behaviour of the OneVision system we are replacing as the reference (PD-163). One image/PDF conversion crate serves Studio Open, Place and Export and Prepress rasterizing (PD-162). Each app migrates behind its current interface; Studio's baseline is not blocked (PD-154). Design: production-inventory/shared-pdf-engine-design.md (draft).</p>
+<h3>Who builds the shared crates</h3>
+<p>Every shared crate is joint (PD-166). Claude builds and proves a capability in Studio, Codex in Prepress; then both combine it into graphx-production-core, confer on the board, and the other side reviews every change. Older documents that assign a single builder per crate are superseded on that point. The repo exists with a scaffold PR open (PD-155).</p>
+<h3>Production integration comes after the baseline</h3>
+<p>Studio-side production integration work (PRD tasks, every phase) starts only after the Studio baseline design system is built and approved by the owner; production modes then build on those Studio systems (PD-118). PD-118 gates only that Studio UI integration. Prepress is not held: Codex continues the Prepress rebuild now and shared-crate work proceeds with it (PD-151, PD-155). Doc 11 still says Prepress parity is "assumed not gated"; PD-151 settles it (<a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.98q92zxuqzt2">doc 11</a>).</p>
+<h2>Product requirements (PRD)</h2>
+<h3>Problem</h3>
+<p>A print and sign shop's work crosses many tools: design apps, a web visualizer with about 40 production prototypes, a proofing service, an online store, and the OneVision system that drives the machines. Files and decisions are re-entered at each hand-off, previews and production do not run the same code, and the shop pays for and depends on outside production software. The Craft apps already work, but as five separate apps.</p>
+<h3>Goals</h3>
+<ul>
+<li>Ship the full v1 of GraphX Studio, all of it, with no slice-first release (PD-44): Design with Image, Develop, Vector and PDF Press; DAM core (PD-47); desktop (PD-48); large-file support.</li>
+<li>Keep a working test build live at all times so designers can use it and report in the app (PD-100, PD-104, PD-105).</li>
+<li>Make Studio the design and production front end of GraphX, sharing code with GraphX Prepress (PD-145 to PD-147).</li>
+<li>Replace the OneVision system in production step by step, each piece shadow-proven first (PD-04, PD-143, PD-151).</li>
+</ul>
+<h3>Non-goals (now)</h3>
+<ul>
+<li>Rebuilding what the Craft apps already do (PD-100).</li>
+<li>Studio writing machine files in v1: production outputs come from Prepress (<a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.4sq9qi7g56lu">doc 11</a>).</li>
+<li>Remote AI image generation in v1 (PD-82 item 12).</li>
+<li>Being a compliance engine: no licence checks on fonts (PD-114); licences for other content wait until customer launch (PD-126, PD-136).</li>
+<li>Claiming ADA compliance: only "Meets the checked ADA rules" (PD-81).</li>
+<li>Studio-side production integration before the baseline is approved (PD-118); DAM server, large-file pipeline and other NOT NOW items before "working" (STUDIO-PLAN).</li>
+</ul>
+<h3>Users and personas</h3>
+<table border="1">
+<tr><th>User</th><th>What they need</th><th>Decisions</th></tr>
+<tr><td>Designers (shop staff)</td><td>A complete design suite at Craft level, desktop first, with Basic and Advanced depth, CorelDRAW-style behaviour and shop fonts</td><td>PD-67, PD-103, PD-104, PD-106</td></tr>
+<tr><td>Prepress and production staff</td><td>Preflight, Prepress and Proof phases; cost and cut-time; editable generated features; Action palette and automations</td><td>PD-63, PD-82 items 2 and 3, PD-145</td></tr>
+<tr><td>Shop owner</td><td>One subscription, own margin, real cost and margin views, approval of decisions</td><td>PD-04, PD-82 item 14</td></tr>
+<tr><td>Customers in proofing</td><td>Simple view, live price or quote, proof views, fix-it-yourself options; phone for edit, order and proof</td><td>PD-66, PR-01, PR-02, UX-13</td></tr>
+<tr><td>Other tenants (later)</td><td>Production workspace offered to tenants, extendable to their customers within limits; white-label</td><td>PD-01 to PD-03, PD-68</td></tr>
+</table>
+<h3>User journeys</h3>
+<table border="1">
+<tr><th>Journey</th><th>Steps</th><th>Today</th></tr>
+<tr><td>Designer test script</td><td>New document; draw a rectangle and colour it; type text; place an image; open a 2-page PDF (page picker); save; close without saving; reopen and edit; export PDF and open it elsewhere; send feedback</td><td>Steps 1 to 8 and 10 implemented; step 9 fails (no Export)</td></tr>
+<tr><td>Customer order</td><td>Storefront product opens Studio set up with a live quote; customise; Add to order or Request proof</td><td>Not built (PD-71, PD-80)</td></tr>
+<tr><td>Proof and approve</td><td>Request proof; customer reviews Finished, Print and mock-up views; comments, fixes or approves; approval recorded against the exact revision</td><td>Platform service exists; Studio UI not built (PD-133)</td></tr>
+<tr><td>Production hand-off</td><td>Preflight; Prepress phase builds the job ticket; PrepressPort sends it to a line (OneVision for now); results come back as overlays</td><td>Not built (PD-118, PD-144)</td></tr>
+<tr><td>Record an automation</td><td>Designer runs actions from the Action palette, records them as a flow, saves it as a Prepress automation</td><td>Not built (PD-145)</td></tr>
+<tr><td>Standalone shop joins GraphX</td><td>Shop runs Studio/Prepress locally on a shadow DB; signs up; catalog migrates with every record mapped</td><td>Not built (PD-147)</td></tr>
+</table>
+<h3>Product principles (rules from decisions)</h3>
+<table border="1">
+<tr><th>Principle</th><th>Decision</th></tr>
+<tr><td>Combine, don't rebuild; keep it runnable at every step; don't swing the plan on feedback</td><td>PD-100</td></tr>
+<tr><td>Build from the core out; readability is a must</td><td>PD-93, PD-84</td></tr>
+<tr><td>One interface: shared components, specialised panels, no bespoke per-studio UI</td><td>PD-65, PD-70</td></tr>
+<tr><td>Desktop has no artificial limits; only real memory, and running out is a file error</td><td>PD-101, PD-157</td></tr>
+<tr><td>Browser streams large files through the server; no size refusal</td><td>PD-156</td></tr>
+<tr><td>Never show or print something different from the file; report exactly what is wrong; output-changing problems block until overridden (PD-107, awaiting owner confirmation); block outside actions and strip on save</td><td>PD-94 to PD-97, PD-107</td></tr>
+<tr><td>Studio is a PDF workspace; the saved file is a real PDF</td><td>PD-76, PD-77</td></tr>
+<tr><td>One definition per thing: production tools in doc 11 by PT-ID, Prepress modules in Codex's module docs, decisions in the register; everything else links</td><td>Owner 2026-10-21; Working Agreement rule 6</td></tr>
+<tr><td>One shared engine per concern (PDF, colour, conversion, nesting, marks, preflight)</td><td>PD-140, PD-141, PD-143, PD-154, PD-161, PD-162</td></tr>
+<tr><td>GraphX names only in the app; OneVision names never ship</td><td>PD-63, PD-153</td></tr>
+<tr><td>PostgreSQL only, no SQLite, local installs included (ADR-0001's SQLite is superseded)</td><td>PD-152</td></tr>
+<tr><td>Not a compliance engine; licences for content deferred to customer launch</td><td>PD-114, PD-126, PD-136</td></tr>
+<tr><td>Art-analysis problems warn and offer fixes; they block only if production truly stops (PDF problems that change output follow PD-107 above)</td><td>AR-03</td></tr>
+</table>
+<h3>Releases and milestones</h3>
+<table border="1">
+<tr><th>Milestone</th><th>Exit criteria</th><th>Status</th></tr>
+<tr><td>M1 Baseline "working"</td><td>Designer test script passes on desktop and browser; no dead buttons; FOCUS 1 to 6 done</td><td>FOCUS 3 done; FOCUS 1 done in the tracker but one ui-egui test still fails; FOCUS 2 (Export PNG on an unmerged branch) and 4 (part 1 merged) partial; 5 and 6 not started</td></tr>
+<tr><td>M2 Designer test (Craft level)</td><td>Craft parity list passes; desktop builds run on real Windows and macOS; feedback from each OS lands</td><td>Partial</td></tr>
+<tr><td>M3 Baseline approved</td><td>Owner approves the baseline design system (PD-118 Stage 0)</td><td>Not reached</td></tr>
+<tr><td>M4 Production integration</td><td>Doc 11 Stage 1 (shared crates, PrepressPort, reference schema), Stage 3 (imposition, nest), Stage 4 (device nodes), Stage 5 (Action palette, sync, migration), Lane S (product modes, pricing, proofing)</td><td>Studio-side tasks blocked by PD-118; Prepress and shared-crate work proceeds (PD-151)</td></tr>
+<tr><td>Prepress stages</td><td>PP-00 import slices and naming map; PP-01 Postgres manifest/runtime skeleton; PP-02 rename all 88 modules; PP-03 highest-usage modules; PP-04 imposition; PP-05 colour extraction; PP-06 first production line qualified in shadow</td><td>PP-00 and PP-01 started (PD-164)</td></tr>
+<tr><td>Full v1</td><td>PD-44 scope, including PDF-native file (PD-77), large files (PD-98, PD-156) and the DAM server, which gates v1 (PD-55 OQ-15)</td><td>Not reached</td></tr>
+<tr><td>Customer launch</td><td>Licences obtained (PD-126); signed builds (D5); ADA wording signed off (PD-81)</td><td>Not reached</td></tr>
+</table>
+<h3>Success metrics</h3>
+<ul>
+<li>Designer test script: 10 of 10 steps pass on desktop and browser at every refresh.</li>
+<li>Craft parity list (56 checked items, handoff-2026-10-18/CRAFT-PARITY-GAPS.md): every item PASS.</li>
+<li>Zero dead buttons; zero silent output differences (every degradation is a reported file error or warning).</li>
+<li>Web size and start budgets (PD-52): core 22 MB Brotli or less, W1 2 MB or less, W2 base 4.5 MB or less, cold start 10 s or less at 25 Mbit/s.</li>
+<li>Every designer report has a status line; owner confirms fixed items on the test build.</li>
+<li>Prepress: each module matches or beats the current system in shadow runs before it switches (PD-143); first production line qualified in shadow (PP-06).</li>
+<li>Same input and profile give the same colour in Studio, Prepress and proofing (PD-161).</li>
+<li>Open: the owner has not set adoption or business targets (for example jobs moved off the current system, or time saved per job).</li>
+</ul>
+<h3>Risks</h3>
+<table border="1">
+<tr><th>Risk</th><th>Effect</th><th>Mitigation</th></tr>
+<tr><td>Export not built</td><td>Blocks the designer test, print, PDF-as-vector and the PDF-native file</td><td>It is FOCUS 2; split into PNG, then PDF, SVG, JPEG</td></tr>
+<tr><td>Two PDF paths: the hardened worker is not linked into the app</td><td>Hostile-file protection is weaker in the app than in the worker</td><td>Link the worker; shared engine (PD-154)</td></tr>
+<tr><td>Windows and macOS builds never run on real machines; unsigned</td><td>Designers may not be able to start them</td><td>D1, D2, D5</td></tr>
+<tr><td>Long-lived branches far behind base (Export PNG and fonts, about 369 commits)</td><td>Merge cost and lost work</td><td>Merge to base first after the reset</td></tr>
+<tr><td>Usage limits pause all lanes</td><td>Calendar time slips</td><td>Pacing rule; restart notes (PD-112)</td></tr>
+<tr><td>Prepress maturity: 0 of 61 production lines qualified; 0 of 944 tasks Done (2026-10-22 inventory)</td><td>Device output stays on the current system for some time</td><td>Shadow-run and switch per job type (PD-143, PD-144)</td></tr>
+<tr><td>Licensed third-party data in branches</td><td>Legal exposure at customer launch</td><td>Server-side only; strip from git (PD-126, PRD-02)</td></tr>
+<tr><td>Plan churn</td><td>Lost work (PD-100 lesson)</td><td>Build on the working base; settled decisions stay settled</td></tr>
+</table>
+<h3>Assumptions</h3>
+<ul>
+<li>The Craft forks are a working base, and we may modify and rebrand them freely (PD-53, PD-100).</li>
+<li>The OneVision system we are replacing keeps driving the devices until each Prepress piece is proven (PD-144).</li>
+<li>Cloudflare Access is an accepted boundary for demo and test routes (PD-49).</li>
+<li>Until GraphX is in production, effects outside our systems are not a concern; "try it somewhere safe first" applies to production releases and customer-facing changes (PD-61).</li>
+</ul>
+<h3>Open questions</h3>
+<table border="1">
+<tr><th>#</th><th>Question</th><th>Source</th></tr>
+<tr><td>Q1</td><td>How do human developers fit the lane model, the review families and the merge authority (PD-46 names Claude as merger for Standard PRs)?</td><td>PD-46, PD-89, PD-166</td></tr>
+<tr><td>Q2</td><td>How do the PD-137 modes (Design, Edit PDF, Templates &amp; VDP, Production) map onto the PD-63/PD-69 phases and contextual tool sets?</td><td>PD-137</td></tr>
+<tr><td>Q3</td><td>What does "approved" mean for the PD-118 baseline: which checks and who signs?</td><td>PD-118</td></tr>
+<tr><td>Q4</td><td>Resolved: Prepress parity work is not gated by PD-118. Codex continues now; PD-118 gates only Studio UI integration.</td><td>PD-151, PD-118</td></tr>
+<tr><td>Q5</td><td>OneVision IP scope, production phasing and who writes cutter and CAM files</td><td>PD-132 (open), PRD-15</td></tr>
+<tr><td>Q6</td><td>How should Studio AI tools start (local versus cloud models, who pays, human accept step)?</td><td>PD-134 (open)</td></tr>
+<tr><td>Q7</td><td>Awaiting owner on the Studio plan: F7 default fill; browser Save in place (O1); desktop updater (D3); Apple and Windows signing accounts (D5); PKCE session binding (D4); .cdr import; PD-107 confirmation and an export override dialog; pop-out panels lane (PD-73); web size +307 KB accept or trim (P4); which Photo tools and shop fonts to do first</td><td>STUDIO-PLAN AWAITING OWNER</td></tr>
+<tr><td>Q8</td><td>Ghostscript (open, owner to decide): the ONE-APP board licence rule of 2026-10-14, ADR-0001 D8 and PD-48 allow it only as an isolated separate program (never linked, AGPL source offered); the draft shared PDF engine design lists it as forbidden. Confirm which holds.</td><td>ONE-APP board 2026-10-14; ADR-0001 D8; PD-48; shared PDF engine design (draft)</td></tr>
+<tr><td>Q9</td><td>Resolved: Studio and Prepress local installs use PostgreSQL. PD-152 ("No SQLite, Postgres only", local installs included) supersedes ADR-0001's SQLite local store.</td><td>PD-152, ADR-0001</td></tr>
+<tr><td>Q10</td><td>Accessibility requirements for the Studio UI (keyboard, screen reader, contrast): none decided</td><td>No decision found</td></tr>
+<tr><td>Q11</td><td>The browser streaming threshold that replaces the old size refusal</td><td>PD-156, PD-52</td></tr>
+<tr><td>Q12</td><td>Where the desktop installer and updater live: PD-48 names graphx-desktop, which does not exist yet</td><td>PD-48</td></tr>
+<tr><td>Q13</td><td>The owner's "smart system" vision for product-designer entry</td><td>UX-18</td></tr>
+</table>
+<h2>Functional requirements (FRD)</h2>
+<p>Each requirement is one line, with a link to the module doc that holds the detail. Read the linked doc before building; do not copy its content into code comments or PRs, link it.</p>
+<ul>
+<li><b>ID</b>: FR-&lt;area&gt;-&lt;nn&gt;. IDs are stable; new requirements take the next number.</li>
+<li><b>Priority</b>: <b>Must</b> = needed for the baseline or a decided rule that applies to all work; <b>Should</b> = decided, but scheduled after the baseline; <b>Could</b> = idea, open or later. Priorities are this doc's reading of the sources, not owner rulings; the owner may change them.</li>
+<li><b>Source</b>: owner decision IDs from the <a href="https://docs.google.com/document/d/12W1Gvr_JKvGmiMRnnpK1173uItxJo51Cu8bP7pf7_Gk/edit">Ideas & Decisions Register</a> (PD, UX, TP, PR, AR, CM), tracker task IDs, or STUDIO-PLAN.</li>
+<li><b>Detail</b>: each area names its module doc; the colour area is in doc 4, text and fonts in doc 5, proofing and production in doc 11.</li>
+<li><b>Status</b> (from the tracker sheet and module docs, 2026-10-21/22): <b>Built</b> = merged; <b>Partial</b> = some of it merged; <b>Not started</b>; <b>Blocked</b> = waiting on a named decision, input or gate (PD-118 is the production-integration gate). <b>Not verified</b> = no tracker row or doc states it; treat as not built until checked.</li>
+</ul>
+<h3>Workspace UI and panels</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1sxw-Ch-20fmsQ5tmgYfzD1M0TkJVEJ1V-Y1tbIIa9Xo/edit">doc 2, Workspace UI</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-WS-01</td><td>Design is the base; Image, Develop, Vector and PDF Press tools appear on selecting that object kind; no top-level mode switcher.</td><td>Must</td><td>PD-63, PD-69</td><td>Partial: tool modes merged; Develop not wired</td></tr>
+<tr><td>FR-WS-02</td><td>Left toolbar always holds create/place tools for every kind and opens the selected kind's toolbox; right dock holds displays, context and advanced menus.</td><td>Must</td><td>PD-75</td><td>Partial</td></tr>
+<tr><td>FR-WS-03</td><td>One context-sensitive property bar follows the selection (none, rectangle, ellipse, curve, text, image, group).</td><td>Must</td><td>PD-103</td><td>Partial: part 1 (#262); rest is F4</td></tr>
+<tr><td>FR-WS-04</td><td>One page at a time, with a bottom page bar and a named tab per page.</td><td>Must</td><td>PD-102</td><td>Built (#219, #229)</td></tr>
+<tr><td>FR-WS-05</td><td>Page-tab names are saved with the file.</td><td>Should</td><td>PD-102</td><td>Not started</td></tr>
+<tr><td>FR-WS-06</td><td>Colour strip: left click = fill, right click = outline, no-colour swatch removes; one undo step per click.</td><td>Must</td><td>PD-108</td><td>Built (#252)</td></tr>
+<tr><td>FR-WS-07</td><td>Palettes dock to any edge or float, several at once, position remembered; separate Default and Document palettes.</td><td>Must</td><td>PD-109, F3</td><td>Partial: #256; F3 split not started</td></tr>
+<tr><td>FR-WS-08</td><td>Every toolbar and panel can be reordered, re-anchored or floated; layout remembered per user; Reset workspace.</td><td>Must</td><td>PD-110</td><td>Built (#256, #265)</td></tr>
+<tr><td>FR-WS-09</td><td>Too many panel tabs overflow to a menu or switch to vertical tabs, by user choice.</td><td>Should</td><td>PD-115</td><td>Not started</td></tr>
+<tr><td>FR-WS-10</td><td>Window > Panels is a multi-select list; the set saves as a named workspace.</td><td>Should</td><td>PD-116</td><td>Not started</td></tr>
+<tr><td>FR-WS-11</td><td>Duplicate Layout toolbar removed; the rest folds into the designer toolbar as grouped flyouts.</td><td>Should</td><td>PD-117</td><td>Not started</td></tr>
+<tr><td>FR-WS-12</td><td>One shared component set; no per-studio UI; product modes are specialised panels sharing one Objects panel.</td><td>Must</td><td>PD-65, PD-70</td><td>Partial: dock framework built</td></tr>
+<tr><td>FR-WS-13</td><td>No dead buttons: build or hide the 5 unconnected toolbar buttons, top-bar Search and reference-point grid.</td><td>Must</td><td>STUDIO-PLAN</td><td>Not started</td></tr>
+<tr><td>FR-WS-14</td><td>Undo has no step cap; typing is one undo step.</td><td>Must</td><td>PD-104</td><td>Built (#237)</td></tr>
+<tr><td>FR-WS-15</td><td>Primary split button defaults by context: Add to order, Request proof, or Save/Export.</td><td>Must</td><td>PD-80</td><td>Partial: #215; no providers yet</td></tr>
+<tr><td>FR-WS-16</td><td>Phases Templates, Assets, Preflight, Prepress, Proof, each hidden until a real provider backs it.</td><td>Must</td><td>PD-63, PD-69</td><td>Partial: in code, hidden (#242)</td></tr>
+<tr><td>FR-WS-17</td><td>Basic/Advanced user toggle; Staff vs Customer views from entitlements on the same screens.</td><td>Should</td><td>PD-66, PD-67</td><td>Not started</td></tr>
+<tr><td>FR-WS-18</td><td>Light and dark themes follow the device; neutral, white-label-ready UI.</td><td>Could</td><td>PD-67, PD-68</td><td>Not verified</td></tr>
+<tr><td>FR-WS-19</td><td>With nothing selected, a picked colour becomes the default for the next new object.</td><td>Should</td><td>PD-108, F7</td><td>Blocked: F3 + owner</td></tr>
+<tr><td>FR-WS-20</td><td>Browser panels pop out into their own windows and redock on close.</td><td>Could</td><td>PD-73</td><td>Blocked: owner picks a lane</td></tr>
+</table>
+<h3>File I/O</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1AMzvAcmSABV3jtgn6euHyzHS2Gx3VfjVVyE3-RSlEKA/edit">doc 3, File I/O</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-IO-01</td><td>Blank start; File > New Document always works, including after opening a file.</td><td>Must</td><td>PD-104</td><td>Built (#220, #257)</td></tr>
+<tr><td>FR-IO-02</td><td>Open, Import and Place: Studio and Craft files, PNG, JPEG, TIFF, PSD, PSB, GIF, WebP, BMP, SVG, SVGZ, EPS, PDF, AI.</td><td>Must</td><td>PD-106, PD-82</td><td>Built (#232 to #249)</td></tr>
+<tr><td>FR-IO-03</td><td>An unsupported file names its extension and lists accepted types.</td><td>Must</td><td>PD-95</td><td>Built (#248)</td></tr>
+<tr><td>FR-IO-04</td><td>A multi-page PDF opens with a page picker; a single page opens directly.</td><td>Must</td><td>PD-111</td><td>Built (#258); not seen on screen</td></tr>
+<tr><td>FR-IO-05</td><td>Save, Save As and Save / Don't Save / Cancel on desktop (atomic) and browser (download).</td><td>Must</td><td>PD-104, PD-106</td><td>Built (#241, #257)</td></tr>
+<tr><td>FR-IO-06</td><td>Any document saves, including text plus placed artwork.</td><td>Must</td><td>PD-106</td><td>Partial: interim writer refuses that mix</td></tr>
+<tr><td>FR-IO-07</td><td>Export page to PNG at a chosen DPI, desktop and browser.</td><td>Must</td><td>FOCUS 2 (P1b)</td><td>Partial: on a branch, not merged</td></tr>
+<tr><td>FR-IO-08</td><td>Export PDF, SVG and JPEG; page count and size match; failures are file errors.</td><td>Must</td><td>FOCUS 2 (P1)</td><td>Not started</td></tr>
+<tr><td>FR-IO-09</td><td>No open-size cap on desktop; browser routes large files to the server.</td><td>Must</td><td>PD-101, PD-156</td><td>Not started: flat 32 MiB cap today</td></tr>
+<tr><td>FR-IO-10</td><td>A failed import never hangs or crashes the app.</td><td>Must</td><td>PD-95, PD-157</td><td>Partial: PDF worker hardened but not linked into the app; P5 open</td></tr>
+<tr><td>FR-IO-11</td><td>Browser Save rewrites the same file without a prompt where supported.</td><td>Should</td><td>O1</td><td>Blocked: owner</td></tr>
+<tr><td>FR-IO-12</td><td>Print, Package and Print Booklet.</td><td>Should</td><td>Parity gap 13</td><td>Not started</td></tr>
+<tr><td>FR-IO-13</td><td>CorelDRAW .cdr import.</td><td>Could</td><td>Awaiting owner</td><td>Blocked: parser or converter</td></tr>
+</table>
+<h3>PDF engine and safety</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1s3DN0osQ8s9YMowJ57X4WGBQ12HB7kWUWZFqEyHK72s/edit">doc 4, PDF engine &amp; PDF-native file</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-PDF-01</td><td>Never silently show or print something different from the file; degraded rendering warns.</td><td>Must</td><td>PD-94</td><td>Partial: worker not linked into app</td></tr>
+<tr><td>FR-PDF-02</td><td>Hostile or malformed PDFs give an immediate file error: what, page, object, limit.</td><td>Must</td><td>PD-95</td><td>Partial: worker crate only</td></tr>
+<tr><td>FR-PDF-03</td><td>Output-changing problems block print/export until a logged per-item override; others are warnings.</td><td>Must</td><td>PD-107 (awaiting owner confirmation)</td><td>Partial: classified (#240)</td></tr>
+<tr><td>FR-PDF-04</td><td>Outside-reaching PDF actions blocked by default, with logged override; remote files fail at once.</td><td>Must</td><td>PD-96</td><td>Partial: decision (#199)</td></tr>
+<tr><td>FR-PDF-05</td><td>Save strips actions, scripts, attachments, history and private metadata; keeps print layers.</td><td>Must</td><td>PD-96</td><td>Not started</td></tr>
+<tr><td>FR-PDF-06</td><td>The saved Studio file is a real PDF 1.3 to 2.0 with editable data embedded; opens as artwork in pro apps, RIPs and cutter software.</td><td>Must</td><td>PD-77</td><td>Not started (P7)</td></tr>
+<tr><td>FR-PDF-07</td><td>Output defaults to PDF/X-4; device profiles may ask for X-1a or X-3.</td><td>Must</td><td>PD-159</td><td>Not started</td></tr>
+<tr><td>FR-PDF-08</td><td>A PDF that cannot open editable stays sharp vector content, with the notice.</td><td>Must</td><td>FOCUS 5 (P2)</td><td>Partial: raster fallback (#253)</td></tr>
+<tr><td>FR-PDF-09</td><td>One shared PDF engine for Studio and Prepress: one limits policy, hostile corpus and diagnostics table.</td><td>Must</td><td>PD-154</td><td>Not started (design draft)</td></tr>
+<tr><td>FR-PDF-10</td><td>Browser: small files local, larger files uploaded and streamed via the server; no size refusal.</td><td>Must</td><td>PD-156</td><td>Not started (NOT NOW)</td></tr>
+<tr><td>FR-PDF-11</td><td>A browser PDF worker out of memory routes to the server tier and tells the user.</td><td>Should</td><td>PD-88</td><td>Not started</td></tr>
+<tr><td>FR-PDF-12</td><td>Desktop: no artificial caps, only crash-prevention caps; cancellable time-outs; out of memory is a file error.</td><td>Must</td><td>PD-101, PD-157</td><td>Partial (#207 to #233)</td></tr>
+<tr><td>FR-PDF-13</td><td>Each Prepress line picks strict or repair for damaged PDFs; default repairs and flags.</td><td>Should</td><td>PD-158</td><td>Not started</td></tr>
+<tr><td>FR-PDF-14</td><td>PDF Press always on for press-readiness; object editing on selecting PDF content.</td><td>Must</td><td>PD-54, PD-76</td><td>Not verified</td></tr>
+<tr><td>FR-PDF-15</td><td>One shared image-to-PDF and PDF-to-image conversion crate.</td><td>Must</td><td>PD-162</td><td>Not started</td></tr>
+</table>
+<h3>Colour</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1s3DN0osQ8s9YMowJ57X4WGBQ12HB7kWUWZFqEyHK72s/edit">doc 4, PDF engine &amp; PDF-native file</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-COL-01</td><td>Every saved PDF embeds a standard Output Intent chosen per job; customer source profiles stay with images.</td><td>Must</td><td>PD-97</td><td>Partial (#199, #228)</td></tr>
+<tr><td>FR-COL-02</td><td>Device profiles only in internal production PDFs; never in git, Knowledge Vault or bundles.</td><td>Must</td><td>PD-45, PD-97</td><td>Partial: rule in force</td></tr>
+<tr><td>FR-COL-03</td><td>One shared colour crate: same input and profile give the same colour everywhere.</td><td>Must</td><td>PD-161</td><td>Not started</td></tr>
+<tr><td>FR-COL-04</td><td>The current system's colour behaviour is specified and shadow-compared as the reference.</td><td>Must</td><td>PD-163, PD-164</td><td>Not started (PP-05)</td></tr>
+<tr><td>FR-COL-05</td><td>Industry spot names per device profile, tenant-definable, mapped to process or colour; GX_* internal only.</td><td>Must</td><td>PD-120</td><td>Not started</td></tr>
+<tr><td>FR-COL-06</td><td>Unknown spots are asked once and remembered.</td><td>Should</td><td>AR-02</td><td>Not started</td></tr>
+<tr><td>FR-COL-07</td><td>Soft proof, separations and overprint preview in Studio.</td><td>Should</td><td>PD-97</td><td>Partial: in forks, not exposed</td></tr>
+<tr><td>FR-COL-08</td><td>Trapping (spread/choke) as a Prepress module, callable from Studio.</td><td>Should</td><td>PD-160</td><td>Not started</td></tr>
+</table>
+<h3>Image, Photo and Develop</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1WxMX7P4S7n8TpSsQcJsmgK3NLqFD-lRFLpm5cByUOzs/edit">doc 5, Image / Photo / Develop</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-IMG-01</td><td>Image tools on selecting a picture: Move, Marquee, Lasso, Eyedropper, Brush, Eraser, Bucket, Blur/Sharpen, Dodge/Burn.</td><td>Must</td><td>PD-69, PD-92</td><td>Built (#131, #163)</td></tr>
+<tr><td>FR-IMG-02</td><td>Photo Crop.</td><td>Must</td><td>Parity gap 10</td><td>Blocked: placement contract</td></tr>
+<tr><td>FR-IMG-03</td><td>Further Photo tools: Sponge, Colour Replacement, Gradient, erasers, Colour Sampler, Ruler.</td><td>Should</td><td>Parity gap 16</td><td>Not started</td></tr>
+<tr><td>FR-IMG-04</td><td>The 17 adjustment layers apply correctly.</td><td>Should</td><td>Parity gap 22</td><td>Not started (untested)</td></tr>
+<tr><td>FR-IMG-05</td><td>Develop for RAW, JPEG and TIFF (tone, colour, detail, presets, sync, crop); retouching uses Image tools.</td><td>Must</td><td>PD-44, PD-55</td><td>Partial: engine not wired; paused</td></tr>
+<tr><td>FR-IMG-06</td><td>Edit image on a photo inside a placed PDF, round-tripped through Image/Develop.</td><td>Should</td><td>PD-79</td><td>Not verified</td></tr>
+<tr><td>FR-IMG-07</td><td>Desktop has no pixel caps.</td><td>Must</td><td>PD-101</td><td>Built (300 MP proof)</td></tr>
+<tr><td>FR-IMG-08</td><td>The photo Library is a view of the DAM.</td><td>Should</td><td>PD-47</td><td>Blocked: DAM not now</td></tr>
+</table>
+<h3>Vector</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1bepSQg00J11mgq6BAhe_yUmEL91CTa151dsasL-pddw/edit">doc 6, Vector</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-VEC-01</td><td>Vector tools on selecting vector art; Design path tools and 5-operation Pathfinder.</td><td>Must</td><td>PD-69</td><td>Built</td></tr>
+<tr><td>FR-VEC-02</td><td>VectorCraft tool families one at a time, Shape Builder and Scissors/Knife first (6 of 90 connected).</td><td>Must</td><td>FOCUS 6 (P8)</td><td>Not started</td></tr>
+<tr><td>FR-VEC-03</td><td>Image Trace on a selected picture.</td><td>Should</td><td>Gap 11</td><td>Blocked: path design</td></tr>
+<tr><td>FR-VEC-04</td><td>VectorCraft effects and Effect, Select, Filter menus.</td><td>Should</td><td>Gap 15</td><td>Not started</td></tr>
+<tr><td>FR-VEC-05</td><td>CorelDRAW-style shaping: weld, trim, intersect, blend, contour, envelope, PowerClip.</td><td>Should</td><td>PD-67</td><td>Partial: Pathfinder only</td></tr>
+<tr><td>FR-VEC-06</td><td>One Vector interface for drawn paths and SVG, without conversion.</td><td>Should</td><td>UX-VECTOR-01</td><td>Partial</td></tr>
+<tr><td>FR-VEC-07</td><td>Colour libraries and snapping verified.</td><td>Should</td><td>Gaps 21, 23</td><td>Not started</td></tr>
+</table>
+<h3>Text and fonts</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1WxMX7P4S7n8TpSsQcJsmgK3NLqFD-lRFLpm5cByUOzs/edit">doc 5, Image / Photo / Develop</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-TXT-01</td><td>Click-to-type point text.</td><td>Must</td><td>PD-104</td><td>Built (#251)</td></tr>
+<tr><td>FR-TXT-02</td><td>Bundled families with Bold, Italic, Bold Italic.</td><td>Must</td><td>PD-106</td><td>Partial: branch not merged</td></tr>
+<tr><td>FR-TXT-03</td><td>Desktop uses installed system fonts.</td><td>Must</td><td>PD-106</td><td>Not started</td></tr>
+<tr><td>FR-TXT-04</td><td>Browser uses Local Font Access where available.</td><td>Should</td><td>PD-106</td><td>Not started</td></tr>
+<tr><td>FR-TXT-05</td><td>Google Fonts mirrored on our server; all families listed; download on first use; desktop download all.</td><td>Should</td><td>PD-114</td><td>Not started</td></tr>
+<tr><td>FR-TXT-06</td><td>The mirror syncs upstream on a schedule and keeps removed families.</td><td>Should</td><td>PD-114</td><td>Not started</td></tr>
+<tr><td>FR-TXT-07</td><td>Desktop setting: Keep in sync or Keep what I have.</td><td>Could</td><td>PD-114</td><td>Not started</td></tr>
+<tr><td>FR-TXT-08</td><td>Upload or sync local fonts, shared shop-wide; no licence checks.</td><td>Should</td><td>PD-114</td><td>Not started</td></tr>
+<tr><td>FR-TXT-09</td><td>Fonts used are embedded on save; a missing font is a blocking error with override.</td><td>Must</td><td>PD-107, PD-114</td><td>Partial (#240)</td></tr>
+<tr><td>FR-TXT-10</td><td>Text controls in the property bar.</td><td>Must</td><td>PD-103</td><td>Not started (F4)</td></tr>
+</table>
+<h3>Desktop and access</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1Dc74b7md9UVVTZG_KSPf_2Yid6DX0dwQlSpT-UhE0Sk/edit">doc 7, Desktop &amp; Designer access</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-DSK-01</td><td>One Rust app for Windows, macOS, Linux and the browser.</td><td>Must</td><td>PD-48, PD-104</td><td>Partial: unsigned; Win/Mac never run</td></tr>
+<tr><td>FR-DSK-02</td><td>Browser build behind Cloudflare Access, company Google login.</td><td>Must</td><td>PD-104</td><td>Built</td></tr>
+<tr><td>FR-DSK-03</td><td>Desktop sign-in via browser PKCE with account confirmation; keychain storage.</td><td>Must</td><td>PD-105</td><td>Built (#254, #255)</td></tr>
+<tr><td>FR-DSK-04</td><td>Server-side binding of the sign-in to a session.</td><td>Should</td><td>D4</td><td>Blocked: owner</td></tr>
+<tr><td>FR-DSK-05</td><td>Signed, notarised macOS and Windows builds.</td><td>Must</td><td>PD-55, D5</td><td>Blocked: accounts</td></tr>
+<tr><td>FR-DSK-06</td><td>Desktop updater using a signed manifest on a GraphX update origin.</td><td>Should</td><td>PD-55, D3</td><td>Blocked: proposed only</td></tr>
+<tr><td>FR-DSK-07</td><td>Test sites refresh to head with build SHA; one-command rollback.</td><td>Must</td><td>D1</td><td>Not started (sites behind)</td></tr>
+<tr><td>FR-DSK-08</td><td>macOS builds on the owner's Macs; Windows cross-compiled.</td><td>Should</td><td>PD-56b</td><td>Partial: SSH to both Macs verified 2026-10-21; app never run on a real machine</td></tr>
+<tr><td>FR-DSK-09</td><td>Browser links to the user's local install.</td><td>Could</td><td>PD-48</td><td>Not started</td></tr>
+</table>
+<h3>Feedback and testing</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1YrJTSMDz4thKnqwBmcZnNuHUbUSWINLEhPrUcZeZJLc/edit">doc 8, Feedback &amp; Testing</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-FB-01</td><td>In-app Feedback panel with up to 5 screenshots, desktop and browser.</td><td>Must</td><td>PD-105</td><td>Built (#246, #252)</td></tr>
+<tr><td>FR-FB-02</td><td>Reports carry build SHA, platform, workspace, tool and identity.</td><td>Must</td><td>PD-105</td><td>Partial: web build lacks SHA</td></tr>
+<tr><td>FR-FB-03</td><td>Reports are triaged into the feedback log with a lane and status.</td><td>Must</td><td>PD-105</td><td>Partial: triage paused</td></tr>
+<tr><td>FR-FB-04</td><td>The 10-step designer test runs on every refresh.</td><td>Must</td><td>STUDIO-PLAN</td><td>Partial: step 9 fails</td></tr>
+<tr><td>FR-FB-05</td><td>A report from each OS lands in the list.</td><td>Must</td><td>D2</td><td>Not started</td></tr>
+<tr><td>FR-FB-06</td><td>Demo site stays the prototyping system; demo to dev to prod by owner decision.</td><td>Should</td><td>PD-135</td><td>Built (site live)</td></tr>
+</table>
+<h3>Proofing</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">doc 11, Production Studios &amp; Pipeline</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-PRF-01</td><td>Studio's Proof workspace takes over every feature of the interim proofing service; the platform record stays the backend.</td><td>Must</td><td>PD-133, PD-82</td><td>Not started</td></tr>
+<tr><td>FR-PRF-02</td><td>Request proof creates a proof version in the platform record.</td><td>Must</td><td>PD-80, PD-133</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PRF-03</td><td>Proof views: Finished, Print, AR mock-up, proof PDF.</td><td>Should</td><td>PR-01</td><td>Not started</td></tr>
+<tr><td>FR-PRF-04</td><td>Customer fix options: fix it, replace art, book a session, return a list.</td><td>Should</td><td>PR-02</td><td>Not started</td></tr>
+<tr><td>FR-PRF-05</td><td>Markup, comments, signed decisions, versions and compare in Studio.</td><td>Must</td><td>PD-133</td><td>Not started in Studio</td></tr>
+<tr><td>FR-PRF-06</td><td>Approval is recorded on the server against the exact revision.</td><td>Must</td><td>PD-82 item 11, PD-133</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PRF-07</td><td>Skip-approval rules and reorder reuse.</td><td>Should</td><td>PR-04, PR-05</td><td>Not started</td></tr>
+<tr><td>FR-PRF-08</td><td>Problems warn and offer fixes; block only when production truly stops.</td><td>Must</td><td>AR-03</td><td>Not started</td></tr>
+<tr><td>FR-PRF-09</td><td>Quick scan on the device, deep scan on the server.</td><td>Should</td><td>AR-01</td><td>Not started</td></tr>
+<tr><td>FR-PRF-10</td><td>One-click customer proof package (PT-14).</td><td>Should</td><td>PR-08</td><td>Partial: prototype</td></tr>
+</table>
+<h3>Production tools</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">doc 11, Production Studios &amp; Pipeline</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-PT-01</td><td>Each production studio becomes a product mode (one specialised panel); tools are defined only in doc 11 by PT-ID.</td><td>Must</td><td>PD-70, PD-74</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PT-02</td><td>Every visualizer studio migrates feature by feature and is perfected on the way.</td><td>Must</td><td>PD-74</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PT-03</td><td>Decided option changes: roll widths, banner finishing, overcut, DTF platens and two-point register.</td><td>Must</td><td>PD-121 to 124, PD-138</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PT-04</td><td>Six known visualizer bugs become fix tasks (PRD-90 to 95).</td><td>Must</td><td>PD-125</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PT-05</td><td>ADA braille via liblouis UEB Grade 2; wording only "Meets the checked ADA rules".</td><td>Must</td><td>PD-81, PD-139</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PT-06</td><td>Licensed data server-side only, never in bundles, git or KV; licences before customer use.</td><td>Must</td><td>PD-82, PD-126</td><td>Blocked: PD-118 (cleanup is PRD-02)</td></tr>
+<tr><td>FR-PT-07</td><td>Land #89 as one vz-landing PR; salvage and close #90; close #99 and #100.</td><td>Must</td><td>PD-127 to 129</td><td>Blocked: PD-118 (PRD-01 to 05)</td></tr>
+<tr><td>FR-PT-08</td><td>Remove OneVision names from visualizer code and UI.</td><td>Must</td><td>PD-153</td><td>Built (PRD-142, PR #102)</td></tr>
+</table>
+<h3>Prepress modules and automation</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">doc 11, Production Studios &amp; Pipeline</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-PRE-01</td><td>Prepress modules live in graphx-prepress and are the same code Studio calls, through one module API.</td><td>Must</td><td>PD-145</td><td>Not started: PR #1 open</td></tr>
+<tr><td>FR-PRE-02</td><td>Module manifest with GraphX-owned ids (graphx.family.name), ports, settings, effects; Codex drafts, Claude reviews.</td><td>Must</td><td>PD-145, PD-165</td><td>Partial: contract drafted</td></tr>
+<tr><td>FR-PRE-03</td><td>Studio Action palette lists every Prepress module.</td><td>Must</td><td>PD-145</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PRE-04</td><td>Record actions as a flow and save it as a Prepress automation; a module result is one undo step.</td><td>Must</td><td>PD-145</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PRE-05</td><td>Studio functions are packaged as Prepress modules; Studio runs code actions.</td><td>Should</td><td>PD-146</td><td>Not started</td></tr>
+<tr><td>FR-PRE-06</td><td>Imposition family in Prepress: step-and-repeat, n-up, work-and-turn, cut-and-stack, booklets with creep.</td><td>Must</td><td>PD-131, PD-142</td><td>Not started (PP-04)</td></tr>
+<tr><td>FR-PRE-07</td><td>One nesting crate for previews, shadow-run before Prepress switches per job type.</td><td>Must</td><td>PD-143</td><td>Not started</td></tr>
+<tr><td>FR-PRE-08</td><td>One preflight rule format and engine for Prepress, Studio and proofing.</td><td>Must</td><td>PD-140</td><td>Not started</td></tr>
+<tr><td>FR-PRE-09</td><td>One marks, barcode and QR crate with cutter conventions, decode-tested.</td><td>Must</td><td>PD-141</td><td>Not started</td></tr>
+<tr><td>FR-PRE-10</td><td>Until parity, Studio hands jobs to existing OneVision lines through their API.</td><td>Must</td><td>PD-05, PD-144</td><td>Not started</td></tr>
+<tr><td>FR-PRE-11</td><td>Every module shadow-runs before switching; production reference runs never touch devices.</td><td>Must</td><td>PD-143, PD-149</td><td>Partial: first target chosen</td></tr>
+<tr><td>FR-PRE-12</td><td>Runtime stores use PostgreSQL, local installs included; no SQLite (ADR-0001's SQLite is superseded).</td><td>Must</td><td>PD-152</td><td>Partial: dormant source</td></tr>
+<tr><td>FR-PRE-13</td><td>No OneVision names or text in shipped code, UI or data; rename at extraction.</td><td>Must</td><td>PD-153</td><td>Partial: PP-02</td></tr>
+<tr><td>FR-PRE-14</td><td>Re-plan by real usage; first shadow line; unused modules to backlog.</td><td>Must</td><td>PD-148, PD-164</td><td>Partial: PP-00/01 started</td></tr>
+<tr><td>FR-PRE-15</td><td>Open plugin model for device connectors; RIPs via API, JDF or hot folder.</td><td>Could</td><td>PD-06, PD-07</td><td>Not started</td></tr>
+</table>
+<h3>Reference data and sync</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">doc 11, Production Studios &amp; Pipeline</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-REF-01</td><td>The GraphX platform is the system of record for machines, materials, spot maps, processes, device profiles, catalogs.</td><td>Must</td><td>PD-146, PD-147</td><td>Not started</td></tr>
+<tr><td>FR-REF-02</td><td>Local installs keep a shadow DB (same schema and IDs), synced two-way per tenant under GX-300 rules.</td><td>Must</td><td>PD-147, PD-152</td><td>Not started</td></tr>
+<tr><td>FR-REF-03</td><td>A standalone shop migrates to GraphX with every record mapped.</td><td>Must</td><td>PD-147</td><td>Not started</td></tr>
+<tr><td>FR-REF-04</td><td>Modules read reference data, never hard-coded settings; jobs snapshot what they used.</td><td>Must</td><td>PD-147</td><td>Not started</td></tr>
+<tr><td>FR-REF-05</td><td>graphx-materials feeds the reference data in the interim.</td><td>Should</td><td>PD-147</td><td>Not started</td></tr>
+</table>
+<h3>AI tools (future)</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/12W1Gvr_JKvGmiMRnnpK1173uItxJo51Cu8bP7pf7_Gk/edit">doc 10, Ideas &amp; Decisions Register</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-AI-01</td><td>Decide how AI tools start; the forks hold no AI generation to reuse.</td><td>Could</td><td>PD-134 (open)</td><td>Blocked: owner</td></tr>
+<tr><td>FR-AI-02</td><td>No remote AI image generation in v1.</td><td>Must</td><td>PD-82</td><td>Built (none wired)</td></tr>
+<tr><td>FR-AI-03</td><td>Keep and expand the command/MCP surface so agents can drive the same fixes.</td><td>Should</td><td>PD-10, PD-71</td><td>Partial (#178)</td></tr>
+<tr><td>FR-AI-04</td><td>Ideas only: artwork-fixing agent, guide chat, product-picker agent.</td><td>Could</td><td>PR-03, UX-15</td><td>Not started</td></tr>
+</table>
+<h3>Platform integration</h3>
+<p>Detail: <a href="https://docs.google.com/document/d/12wujLkdlc8mCITCoA_uzowBee6l4EuuXFwzi6muSFgQ/edit">doc 9, Platform &amp; Infrastructure</a>.</p>
+<table border="1">
+<tr><th width="10%">ID</th><th width="48%">Requirement (the system shall provide or ensure this)</th><th width="7%">Pri.</th><th width="14%">Source</th><th width="21%">Status</th></tr>
+<tr><td>FR-PLT-01</td><td>Studio reaches services only through providers and ports.</td><td>Must</td><td>PD-71</td><td>Partial: traits, none connected</td></tr>
+<tr><td>FR-PLT-02</td><td>Selectable price source (platform, OnPrintShop adapter, labelled estimate); quote mode per tenant.</td><td>Must</td><td>CM-01, CM-03</td><td>Blocked: PD-118</td></tr>
+<tr><td>FR-PLT-03</td><td>Live design-to-product designed now against OnPrintShop; built after GraphX.</td><td>Should</td><td>PD-71, PD-72</td><td>Not started</td></tr>
+<tr><td>FR-PLT-04</td><td>Order-first and design-first; push to store cart; storefront opens Studio with a live quote.</td><td>Should</td><td>CM-04, PD-71</td><td>Not started</td></tr>
+<tr><td>FR-PLT-05</td><td>Customers see price, quote, options, proof; staff also see cost, margin and production PDF.</td><td>Must</td><td>PD-66, PD-82</td><td>Not started</td></tr>
+<tr><td>FR-PLT-06</td><td>Permissions narrow edition, tenant, store, group, customer; enforced on the server.</td><td>Must</td><td>PD-02, PD-03</td><td>Not started</td></tr>
+<tr><td>FR-PLT-07</td><td>Assets workspace on the DAM; Rust DAM core is the authority; DAM server gates v1.</td><td>Must</td><td>PD-47, PD-55, PD-78</td><td>Blocked: not now</td></tr>
+<tr><td>FR-PLT-08</td><td>Jobs leave as a job ticket through PrepressPort; results return as visualisations.</td><td>Must</td><td>PD-71</td><td>Not started (stub)</td></tr>
+<tr><td>FR-PLT-09</td><td>Templates &amp; VDP: template builder, libraries, locked fields, Data Merge; Block Builder folds in.</td><td>Must</td><td>PD-68, PD-137</td><td>Not started</td></tr>
+</table>
+<h2>Non-functional requirements</h2>
+<table border="1">
+<tr><th>ID</th><th>Area</th><th>Requirement</th><th>Source</th></tr>
+<tr><td>NFR-01</td><td>Performance</td><td>Web budgets: core 22 MB Brotli or less, W1 worker 2 MB or less, W2 base 4.5 MB or less, cold start 10 s or less at 25 Mbit/s. Browser runs wasm64 workers on a pinned nightly; Safari uses wasm32 workers plus the server tier.</td><td>PD-52, PD-55 (OQ-6)</td></tr>
+<tr><td>NFR-02</td><td>File size</td><td>Desktop: no artificial caps; fallible allocation; out of memory is a specific file error; only crash-prevention caps; cancellable time-outs. Browser: small files local, larger files streamed via the server, no refusal; browser worker memory limits stay until the streaming pipeline lands.</td><td>PD-101, PD-156, PD-157, PD-88</td></tr>
+<tr><td>NFR-03</td><td>Security: hostile files</td><td>Hostile or malformed input never crashes or hangs the app; every limit hit is a specific file error; outside-reaching PDF actions are blocked; PDF JavaScript is off for customers (staff toggle).</td><td>PD-95, PD-96, PD-55 (OQ-8)</td></tr>
+<tr><td>NFR-04</td><td>Security: access</td><td>Browser and test routes sit behind Cloudflare Access (company Google domain). App-level auth bypasses on demo routes are accepted only behind Access.</td><td>PD-104, PD-49</td></tr>
+<tr><td>NFR-05</td><td>Security: secrets</td><td>Never print, commit, log or ingest a secret. Secrets come from the Knowledge Vault workflow into owner-only files and are removed after use. Provider keys stay server-side.</td><td>AGENTS.md</td></tr>
+<tr><td>NFR-06</td><td>Privacy</td><td>Customer data and recovery archives stay out of git and Knowledge Vault. Saved PDFs are stripped of private metadata and history. GraphX Local (planned) will offer a "nothing leaves" consent mode.</td><td>AGENTS.md, PD-96, PD-48</td></tr>
+<tr><td>NFR-07</td><td>Offline</td><td>Desktop works on local resources and installed fonts; fonts can be downloaded for offline use; local installs keep a shadow DB that syncs when connected.</td><td>PD-101, PD-106, PD-114, PD-147</td></tr>
+<tr><td>NFR-08</td><td>Multi-tenant</td><td>Tenant-scoped data and storage; permissions narrow edition, tenant, store, group, customer, enforced on the server; licensed data never in client bundles.</td><td>PD-02, PD-03, PD-82 item 1</td></tr>
+<tr><td>NFR-09</td><td>Accessibility</td><td>Open: no owner decision yet on UI accessibility (Q10). The only accessibility rule today is ADA wording for signage output.</td><td>PD-81</td></tr>
+<tr><td>NFR-10</td><td>Licensing</td><td>Approved: OFL and Ubuntu fonts, IJG (with credit), CDLA-Permissive-2.0 (build time), MPL-2.0 for krilla's resvg-derived code with notices. No GPL or AGPL code is linked into the product; the one exception under discussion is Ghostscript as an isolated separate program (Q8). No ICC profiles in git; build-time generation. Content licences deferred to customer launch.</td><td>PD-85, PD-90, PD-45, PD-126, PD-136; ONE-APP 2026-10-14</td></tr>
+<tr><td>NFR-11</td><td>Determinism</td><td>Same input and profile give the same colour everywhere; Prepress reports and receipts are deterministic.</td><td>PD-161; Prepress step-2 contract</td></tr>
+<tr><td>NFR-12</td><td>Observability</td><td>Every file problem has a diagnostic code with location; feedback carries build SHA, platform and context; releases have receipts (commit, image digest, routes, health) per AGENTS.md.</td><td>PD-95, PD-105, AGENTS.md</td></tr>
+<tr><td>NFR-13</td><td>Readability and modularity</td><td>CodeGraph before editing; one concept per module; split files over about 800 lines or functions over about 80; //! header on every module; rustdoc on every public item; tests beside the module; no version suffixes in file names; README per area folder; architecture docs in docs/architecture/.</td><td>PD-84</td></tr>
+<tr><td>NFR-14</td><td>Naming</td><td>GraphX names only in the UI and shipped data; internal IDs stay stable.</td><td>PD-63, PD-153</td></tr>
+</table>
+<h2>How we work</h2>
+<p>The project rules are in the workspace AGENTS.md on the build server (/mnt/data-d/dev/GraphXCPI/AGENTS.md) and each repo's own AGENTS.md. They were written for AI agent lanes and apply to every contributor. How human developers fit the lane and review model is open (Q1); until the owner rules, follow the rules below and ask before merging.</p>
+<h3>Repos and branches</h3>
+<table border="1">
+<tr><th>Repo</th><th>What</th><th>Integration branch</th></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-studio">graphx-studio</a></td><td>Native Studio: the Craft forks (packages/craft-forks/designcraft is the app), workers, limits, store</td><td>crd/studio-native-v1</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-production-core">graphx-production-core</a></td><td>Shared Rust crates for Studio and Prepress (PD-155)</td><td>main (scaffold PR #1 open)</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-prepress">graphx-prepress</a></td><td>GraphX Prepress, the OneVision replacement (Codex)</td><td>main / crd/prepress-integration (import PR #1 open)</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-visualizer">graphx-visualizer</a></td><td>Web visualizer: production prototypes and the demo site</td><td>main; fixes on crd/vz-landing</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-platform">graphx-platform</a></td><td>GraphX platform monorepo: API, store, proofing, materials, DAM, automation</td><td>main</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-dam">graphx-dam</a></td><td>DAM salvage and Rust DAM service work</td><td>main</td></tr>
+<tr><td><a href="https://github.com/GraphXCPI/graphx-docs">graphx-docs</a></td><td>Product and architecture decisions (source of truth once promoted)</td><td>main</td></tr>
+</table>
+<ul>
+<li>GraphXCPI is the only development organisation. Never work on main or master; never force-push or rewrite history; no batch merges.</li>
+<li>Branch names use the crd/ prefix with a task name. One PR per concern.</li>
+</ul>
+<h3>Worktrees</h3>
+<ul>
+<li>repos/&lt;repo&gt; is a clean anchor on the default branch. Never edit in an anchor.</li>
+<li>worktrees/&lt;repo&gt;/&lt;task&gt; holds each active branch. Create worktrees with absolute paths. Never create clones under /tmp or the Docker deployment folders.</li>
+<li>Never delete a worktree without recording its branch, commit, dirty state and a verified recovery copy.</li>
+</ul>
+<h3>CodeGraph</h3>
+<ul>
+<li>Use CodeGraph before editing (PD-84): codegraph query to find code, then codegraph callers and codegraph callees on every symbol you change.</li>
+<li>Shared read-only maps: worktrees/&lt;repo&gt;/codemap for graphx-studio, graphx-visualizer, graphx-prepress and graphx-production-core, refreshed by a timer every 10 minutes. Never edit them.</li>
+<li>In your own worktree, build a local index with codegraph init -i or codegraph sync.</li>
+<li>Every PR lists the modules it calls and is called by, from CodeGraph, plus the user action that triggers the changed code.</li>
+</ul>
+<h3>Reviews and merging</h3>
+<table border="1">
+<tr><th>Risk</th><th>Rule</th><th>Decision</th></tr>
+<tr><td>Standard</td><td>One review by the other model family; fix blockers only; merge; majors and minors become tracked follow-ups. Re-reviews look at the fix diff only.</td><td>PD-99, PD-89</td></tr>
+<tr><td>High-risk (Docker/infra, auth, secrets, money, migrations, destructive cleanup, public APIs, irreversible git)</td><td>Two families in one round, fix blockers, sign-off, ledger row (HR-LEDGER.md). Legal questions go to the owner.</td><td>PD-99, PD-59, PD-60</td></tr>
+<tr><td>Merge authority</td><td>Standard PRs into crd/studio-native-v1 after review and local checks; High-risk and any merge to main per PD-46 and PD-59/60</td><td>PD-46</td></tr>
+<tr><td>Shared crates</td><td>Every change is reviewed by the other side (Studio or Prepress)</td><td>PD-166</td></tr>
+</table>
+<ul>
+<li><b>No GitHub Actions</b>, in any form: not as a gate, not proposed, not re-run. The merge gate is local verification (the repo's own checks, for Studio cargo xtask ci) plus reviews plus approval, recorded in a PR comment.</li>
+<li>Reviews state the verdict first, then numbered blockers with file:line and a one-line fix. Freeze the diff hash while it is under review.</li>
+<li>Every PR follows PD-84: //! headers, rustdoc, small files, concept folders, CodeGraph connection list. Missing docs or an oversized new file is a MAJOR finding.</li>
+</ul>
+<h3>Tracker, module docs and decisions</h3>
+<ul>
+<li>The <a href="https://docs.google.com/spreadsheets/d/1o_2X-y0KZN1nkN7WCbb7QqQ91xEcOiiz-bHr1Oq3vhA/edit">Progress Checklist sheet</a> is the task ledger. States: Not started, Partial, Needs verification, Blocked, Done. Done means the whole task and its done-test are verified, with evidence in the cell note. Set Started and Partial when you begin; Finished, Elapsed and Done when it merges. Record retries, review rounds and any rabbit hole.</li>
+<li>The 11 module docs explain behaviour and evidence. Update the doc and the sheet together. HTML sources are in coordination/module-docs/ and are republished as tabs.</li>
+<li>The <a href="https://docs.google.com/document/d/12W1Gvr_JKvGmiMRnnpK1173uItxJo51Cu8bP7pf7_Gk/edit">Ideas &amp; Decisions Register</a> (coordination/OWNER-IDEAS.md) records every owner decision, append-only, the same day it is given.</li>
+<li>Use the graphx-project-update skill for tracker and doc updates and graphx-project-read for status. Skills live in the shared skills repo.</li>
+</ul>
+<h3>Coordination board, lanes and the working agreement</h3>
+<ul>
+<li>coordination/ONE-APP.md is the Claude and Codex board: posts of at most 10 lines, "FROM → TO: topic — ACTION NEEDED | FYI", one Asks line. Status lives in the trackers, not the board.</li>
+<li>Lanes: Claude works in Studio, Codex in Prepress (including extraction); shared crates are joint (PD-166). Design, plan and build are split roughly half and half, and the reviewer is always the other family (PD-89).</li>
+<li>coordination/WORKING-AGREEMENT.md (v3, agreed 2026-10-22, PD-169, PD-170): two strikes stop an approach; timebox with an exit artifact; decide before researching; no speculative work on paused lanes; one writer per artifact; one definition per thing; smallest proof first; batch owner questions with a recommendation.</li>
+<li>coordination/FACTS.md holds stable paths, IDs and commands. Read it before rediscovering anything.</li>
+</ul>
+<h3>Picking up a task</h3>
+<ul>
+<li>1. Take the next ready row: the STUDIO-PLAN FOCUS list in order, then section 4 of STUDIO-PLAN. Check the board and tracker to see whether someone already has it.</li>
+<li>2. Read the done-test in STUDIO-PLAN section 4 and close its owner questions first.</li>
+<li>3. Create a worktree from the integration branch; query CodeGraph; set the row to Partial with a start time.</li>
+<li>4. Build the smallest change that passes the done-test; run the targeted check, then the full gate before review.</li>
+<li>5. Open the PR with the CodeGraph connection list and the triggering user action; get one cross-family review.</li>
+<li>6. Merge per the rules; refresh the test build; mark the row Done with evidence; update the module doc.</li>
+<li>If you are blocked, write the exact missing input in the cell note, tell the owner, and take the next ready item.</li>
+</ul>
+<h3>First week</h3>
+<ul>
+<li>Day 1: get GitHub access to GraphXCPI and Cloudflare Access to the test sites. Read this doc, STUDIO-PLAN, FACTS, AGENTS.md and WORKING-AGREEMENT. Run the designer test script on the browser build and a desktop download.</li>
+<li>Day 2: set up Rust 1.97.1 with the wasm32 target and wasm-bindgen 0.2.129; create a worktree of crd/studio-native-v1; run cargo xtask ci and cargo xtask wasm; install CodeGraph and explore the Studio map.</li>
+<li>Day 3: read the module docs for your area and its CRAFT-PARITY-GAPS rows; read docs/architecture in graphx-studio.</li>
+<li>Days 4 to 5: take one S-size ready task end to end (worktree, CodeGraph, PR, review, merge, tracker, doc).</li>
+</ul>
+<h2>Doc and link index</h2>
+<h3>Studio docs (Google Drive)</h3>
+<table border="1">
+<tr><th>#</th><th>Doc</th><th>Use it for</th></tr>
+<tr><td>00</td><td>This document</td><td>Entry point</td></tr>
+<tr><td>1</td><td><a href="https://docs.google.com/document/d/1DLLQb4iACcgUY-Gzhp0z_yX_U8cJij9PORDp_DIaYdA/edit">Overview &amp; Focus</a></td><td>Goal, definition of working, FOCUS list, status</td></tr>
+<tr><td>2</td><td><a href="https://docs.google.com/document/d/1sxw-Ch-20fmsQ5tmgYfzD1M0TkJVEJ1V-Y1tbIIa9Xo/edit">Workspace UI</a></td><td>Screen, toolbars, panels, palettes, property bar</td></tr>
+<tr><td>3</td><td><a href="https://docs.google.com/document/d/1AMzvAcmSABV3jtgn6euHyzHS2Gx3VfjVVyE3-RSlEKA/edit">File I/O</a></td><td>Open, Place, Save, Export, formats</td></tr>
+<tr><td>4</td><td><a href="https://docs.google.com/document/d/1s3DN0osQ8s9YMowJ57X4WGBQ12HB7kWUWZFqEyHK72s/edit">PDF engine &amp; PDF-native file</a></td><td>Hardening, diagnostics, colour policy, PDF-native save</td></tr>
+<tr><td>5</td><td><a href="https://docs.google.com/document/d/1WxMX7P4S7n8TpSsQcJsmgK3NLqFD-lRFLpm5cByUOzs/edit">Image / Photo / Develop</a></td><td>Image tools, Develop, fonts</td></tr>
+<tr><td>6</td><td><a href="https://docs.google.com/document/d/1bepSQg00J11mgq6BAhe_yUmEL91CTa151dsasL-pddw/edit">Vector</a></td><td>Vector tools, Pathfinder, Image Trace</td></tr>
+<tr><td>7</td><td><a href="https://docs.google.com/document/d/1Dc74b7md9UVVTZG_KSPf_2Yid6DX0dwQlSpT-UhE0Sk/edit">Desktop &amp; Designer access</a></td><td>Builds, sign-in, signing, updater</td></tr>
+<tr><td>8</td><td><a href="https://docs.google.com/document/d/1YrJTSMDz4thKnqwBmcZnNuHUbUSWINLEhPrUcZeZJLc/edit">Feedback &amp; Testing</a></td><td>Feedback panel, triage, test script</td></tr>
+<tr><td>9</td><td><a href="https://docs.google.com/document/d/12wujLkdlc8mCITCoA_uzowBee6l4EuuXFwzi6muSFgQ/edit">Platform &amp; Infrastructure</a></td><td>Store, workers, limits, command API, quality gates</td></tr>
+<tr><td>10</td><td><a href="https://docs.google.com/document/d/12W1Gvr_JKvGmiMRnnpK1173uItxJo51Cu8bP7pf7_Gk/edit">Ideas &amp; Decisions Register</a></td><td>Every owner decision by ID</td></tr>
+<tr><td>11</td><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit">Production Studios &amp; Pipeline</a></td><td>Canonical production tool definitions (PT-01 to PT-28) and integration plan</td></tr>
+<tr><td>12</td><td>Production Integration Map</td><td>Merged into doc 11 (PD-119); use doc 11 for production integration</td></tr>
+<tr><td>Sheet</td><td><a href="https://docs.google.com/spreadsheets/d/1o_2X-y0KZN1nkN7WCbb7QqQ91xEcOiiz-bHr1Oq3vhA/edit">Progress Checklist</a></td><td>Task ledger (tabs Checklist, Module Plans, Rules, Summary)</td></tr>
+<tr><td>Folder</td><td><a href="https://drive.google.com/drive/folders/1Njl6FZmasL7RIpV1p-3MjovBedhjyUGc">Studio tracker folder</a></td><td>All of the above</td></tr>
+</table>
+<h3>Doc 11 tabs used most</h3>
+<table border="1">
+<tr><th>Tab</th><th>Use it for</th></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.4sq9qi7g56lu">Big picture</a></td><td>The seven layers, shared data models, architecture</td></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.98q92zxuqzt2">Prepress cross-reference</a></td><td>Shared crates SC-01 to SC-15, reference entities E1 to E6, PT to Prepress module map</td></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.bn47v0rudw5s">Phases and task list</a></td><td>Stages, PRD task list and estimates</td></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.uo2voq51ixrx">Production decisions</a></td><td>Production-related owner decisions</td></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.gv8cf5karats">At-risk and preserved work</a></td><td>Work to preserve before changing branches</td></tr>
+<tr><td><a href="https://docs.google.com/document/d/1qfaEFL89GnSC11wtfnbirDEW2CC9ntpkYIYz-WWLQfA/edit?tab=t.ntw47iie4meo">PT-25 PDF Studio</a></td><td>Example tool tab; every tool has one</td></tr>
+</table>
+<h3>GraphX Prepress (Codex)</h3>
+<table border="1">
+<tr><th>Item</th><th>Link</th></tr>
+<tr><td>GraphX-Prepress folder</td><td><a href="https://drive.google.com/drive/folders/1XBlQfke8vR6qgSn3-GzGroHus1yXqjX8">Drive folder</a></td></tr>
+<tr><td>Module Checklist sheet (tab "Studio integration (Claude)")</td><td><a href="https://docs.google.com/spreadsheets/d/1HTyyNQdIynSdr9fbGxmYgDrcdXMU1V2199OTU4AEy8g/edit">Sheet</a></td></tr>
+<tr><td>Overview &amp; Focus</td><td><a href="https://docs.google.com/document/d/1_6BebYIaazMp9aYheAHz1iGCDHddNFoO2AICiKpeXfQ/edit">Doc</a></td></tr>
+<tr><td>Platform &amp; Infrastructure</td><td><a href="https://docs.google.com/document/d/1-4RZYpmtAkW-xrQB3qJ4texNQ7bfCLmAuhoSXHd_0wI/edit">Doc</a></td></tr>
+<tr><td>Feedback &amp; Testing</td><td><a href="https://docs.google.com/document/d/1lmBWvpWyjg0kyd405nfsj8vBCLhRBy424-Z9SKZljvI/edit">Doc</a></td></tr>
+<tr><td>Decisions Log</td><td><a href="https://docs.google.com/document/d/1fUIk6KxulCLShc7hqBSlNzb4S1GaSnLo3mxS_-ylZ6c/edit">Doc</a></td></tr>
+<tr><td>Modules folder (88 module docs)</td><td><a href="https://drive.google.com/drive/folders/19OuaKjXqnKjUDkKtilrgl1mspTV4idrC">Drive folder</a></td></tr>
+<tr><td>Template Reference: GraphX Studio</td><td><a href="https://drive.google.com/drive/folders/1Qj3e1hV3tFxDNsRo09_RJ7wCG9r1-ecs">Drive folder</a></td></tr>
+</table>
+<h3>Repos, PRs and decisions on GitHub</h3>
+<table border="1">
+<tr><th>Item</th><th>Link</th></tr>
+<tr><td>graphx-studio</td><td><a href="https://github.com/GraphXCPI/graphx-studio">GraphXCPI/graphx-studio</a></td></tr>
+<tr><td>graphx-production-core</td><td><a href="https://github.com/GraphXCPI/graphx-production-core">GraphXCPI/graphx-production-core</a>; scaffold <a href="https://github.com/GraphXCPI/graphx-production-core/pull/1">PR #1</a></td></tr>
+<tr><td>graphx-prepress</td><td><a href="https://github.com/GraphXCPI/graphx-prepress">GraphXCPI/graphx-prepress</a>; import <a href="https://github.com/GraphXCPI/graphx-prepress/pull/1">PR #1</a></td></tr>
+<tr><td>graphx-visualizer</td><td><a href="https://github.com/GraphXCPI/graphx-visualizer">GraphXCPI/graphx-visualizer</a></td></tr>
+<tr><td>graphx-platform</td><td><a href="https://github.com/GraphXCPI/graphx-platform">GraphXCPI/graphx-platform</a></td></tr>
+<tr><td>graphx-dam</td><td><a href="https://github.com/GraphXCPI/graphx-dam">GraphXCPI/graphx-dam</a></td></tr>
+<tr><td>graphx-materials</td><td><a href="https://github.com/GraphXCPI/graphx-materials">GraphXCPI/graphx-materials</a></td></tr>
+<tr><td>graphx-docs</td><td><a href="https://github.com/GraphXCPI/graphx-docs">GraphXCPI/graphx-docs</a></td></tr>
+<tr><td>ADR-0001 One App architecture</td><td><a href="https://github.com/GraphXCPI/graphx-docs/blob/main/owner-decisions/2026-10-15-one-app-architecture.md">owner-decisions/2026-10-15-one-app-architecture.md</a></td></tr>
+</table>
+<h3>Test sites (Cloudflare Access, company Google login)</h3>
+<table border="1">
+<tr><th>Site</th><th>Link</th></tr>
+<tr><td>Studio browser build</td><td><a href="https://studio-test.visualgraphx.com/app">studio-test.visualgraphx.com/app</a></td></tr>
+<tr><td>Studio desktop downloads (unsigned)</td><td><a href="https://studio-test.visualgraphx.com/downloads">studio-test.visualgraphx.com/downloads</a></td></tr>
+<tr><td>Visualizer demo and prototyping site (PD-135)</td><td><a href="https://demo.visualgraphx.com">demo.visualgraphx.com</a></td></tr>
+</table>
+<h3>Files on the build server</h3>
+<p>In /mnt/data-d/dev/GraphXCPI/coordination/: STUDIO-PLAN.md (focus, queue, awaiting owner), OWNER-IDEAS.md (decisions), TRACKER-LINKS.md, FACTS.md, WORKING-AGREEMENT.md, PREPRESS-CODEX-BRIEF.md, ONE-APP.md (board), production-inventory/ (shared PDF engine design, OneVision rebuild versus needs, Prepress re-plan and step-2 contract, proofing and AI review) and handoff-2026-10-18/ (CRAFT-PARITY-GAPS, OWNER-TEST-FEEDBACK, LANES-STATUS, LANE-SESSION-BRIEF).</p>
+<h2>Glossary</h2>
+<table border="1">
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td>Craft apps</td><td>DesignCraft, VectorCraft, PhotoCraft, PdfCraft and LightCraft: open-source Rust/egui apps we forked and are combining into Studio (PD-53, PD-100)</td></tr>
+<tr><td>GraphX Prepress</td><td>Our production automation app, built by Codex to replace the OneVision system</td></tr>
+<tr><td>OneVision</td><td>The commercial prepress system the shop runs today, which GraphX Prepress replaces. Its names never appear in our app (PD-153)</td></tr>
+<tr><td>egui / eframe</td><td>The immediate-mode Rust GUI library and its app framework that Studio is built on</td></tr>
+<tr><td>WASM</td><td>WebAssembly: how the same Rust app runs in the browser (wasm32 and wasm64 workers)</td></tr>
+<tr><td>PD-ID, UX/TP/PR/AR/CM-ID</td><td>An owner decision or idea in the register (doc 10)</td></tr>
+<tr><td>PT-ID</td><td>A production tool defined in doc 11 (PT-01 to PT-28)</td></tr>
+<tr><td>PRD-ID</td><td>A production integration task in doc 11 (PRD-01 to PRD-119)</td></tr>
+<tr><td>SC / NF / E</td><td>Shared crate, new Prepress module family, and reference-data entity IDs in doc 11's Prepress cross-reference</td></tr>
+<tr><td>Shared crate</td><td>A Rust crate in graphx-production-core used by both Studio and Prepress</td></tr>
+<tr><td>PrepressPort</td><td>The port through which Studio sends a job ticket to Prepress and receives results back</td></tr>
+<tr><td>Job ticket</td><td>graphx.jobticket/v1: canonical JSON plus SHA-256 describing a job (ADR-0001 D14)</td></tr>
+<tr><td>Module manifest</td><td>The description of a Prepress module (id, version, settings, ports, effects) read by Prepress and Studio's Action palette</td></tr>
+<tr><td>Action palette</td><td>Studio's list of every Prepress module; recorded flows become automations (PD-145)</td></tr>
+<tr><td>Reference data</td><td>Machines, materials, spot/process maps, processes, device profiles and catalogs owned by GraphX (PD-147)</td></tr>
+<tr><td>Shadow DB</td><td>A local copy of the reference data with the same schema and IDs, synced per tenant (PD-147)</td></tr>
+<tr><td>Shadow run</td><td>Running our module beside the current system on the same job and comparing results before switching</td></tr>
+<tr><td>RIP</td><td>Raster image processor: software that turns a PDF into printer data (for example Caldera, Onyx)</td></tr>
+<tr><td>Fiducial</td><td>A registration mark a cutter's camera reads to align the cut with the print</td></tr>
+<tr><td>Nesting</td><td>Packing shapes onto a sheet or roll to save material</td></tr>
+<tr><td>Imposition</td><td>Arranging pages on press sheets: step-and-repeat, n-up, work-and-turn, cut-and-stack, booklets with creep</td></tr>
+<tr><td>Paneling</td><td>Splitting an oversize graphic into panels with seams or overlaps</td></tr>
+<tr><td>CutContour, kiss-cut</td><td>A named spot colour that marks a cut line; a cut through the vinyl but not the liner</td></tr>
+<tr><td>SAV, DTF</td><td>Self-adhesive vinyl; direct-to-film transfers</td></tr>
+<tr><td>Output Intent, ICC</td><td>The colour profile a PDF declares for its output; ICC is the colour profile standard</td></tr>
+<tr><td>PDF/X-4</td><td>A print PDF standard that keeps live transparency; the default output (PD-159)</td></tr>
+<tr><td>Trapping / choke</td><td>Spreading or shrinking colours slightly so press misregistration shows no gaps (PD-160)</td></tr>
+<tr><td>hayro, krilla, lopdf</td><td>Rust PDF libraries: hayro reads and renders, krilla writes, lopdf edits structure</td></tr>
+<tr><td>File error</td><td>A specific, located report of a file problem; output-changing ones block print/export until overridden (PD-95, PD-107)</td></tr>
+<tr><td>PKCE</td><td>The sign-in code exchange the desktop app uses through the browser</td></tr>
+<tr><td>CodeGraph</td><td>The code-intelligence index we query before editing (PD-84)</td></tr>
+<tr><td>Lane, worktree, anchor</td><td>A stream of work; a per-branch checkout; the clean default-branch checkout</td></tr>
+<tr><td>Data Merge / VDP</td><td>Variable data printing from a data file, in Templates &amp; VDP</td></tr>
+<tr><td>DAM</td><td>Digital asset management: GraphX's store for every asset kind (PD-47)</td></tr>
+<tr><td>OPS</td><td>OnPrintShop, the current online store system</td></tr>
+<tr><td>FOCUS 1 to 6, F/P/D/O task IDs</td><td>The priority list at the top of STUDIO-PLAN, and the task IDs in its section 4 (F = frame and UI, P = file I/O and PDF, D = desktop and designer access, O = owner feedback). Parity gap numbers are rows in CRAFT-PARITY-GAPS.md</td></tr>
+<tr><td>PP-00 to PP-06</td><td>The stages of the Prepress re-plan (production-inventory/prepress-usage-replan.md)</td></tr>
+<tr><td>ADR</td><td>Architecture decision record. ADR-0001 is the One App architecture in graphx-docs</td></tr>
+<tr><td>GX-300</td><td>The platform's rules for who owns each record and how two-way sync resolves conflicts</td></tr>
+<tr><td>Provider, port, adapter</td><td>Studio never calls a service directly: a port is the interface it calls, a provider or adapter is the code behind it (for example pricing or proofing)</td></tr>
+<tr><td>Tenant</td><td>One shop's separate account on GraphX, with its own data, users and price lists</td></tr>
+<tr><td>Knowledge Vault (KV)</td><td>The team's project memory service; it holds derived summaries only, never source code, secrets or customer data</td></tr>
+<tr><td>wasm32 / wasm64, Brotli</td><td>32-bit and 64-bit WebAssembly builds; Brotli is the compression the web size budgets are measured in</td></tr>
+<tr><td>Tracker states</td><td>Not started, Partial, Needs verification, Blocked, Done, as used in the Progress Checklist</td></tr>
+</table>
+</body></html>
